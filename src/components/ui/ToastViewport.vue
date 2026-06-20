@@ -18,6 +18,7 @@ function toastClasses(variant: ToastVariant): string {
 
 <template>
   <div
+    aria-live="polite"
     class="pointer-events-none fixed right-3 top-3 z-[60] flex w-[calc(100%-1.5rem)] max-w-sm flex-col gap-3 sm:right-6 sm:top-6"
   >
     <TransitionGroup
@@ -31,6 +32,7 @@ function toastClasses(variant: ToastVariant): string {
       <article
         v-for="toast in appStore.toasts"
         :key="toast.id"
+        :role="toast.variant === 'error' ? 'alert' : 'status'"
         :class="[
           'pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-panel',
           toastClasses(toast.variant),

@@ -18,8 +18,10 @@ import Badge from '@/components/ui/Badge.vue';
 import Button from '@/components/ui/Button.vue';
 import Card from '@/components/ui/Card.vue';
 import IconButton from '@/components/ui/IconButton.vue';
+import Input from '@/components/ui/Input.vue';
+import LoadingCardGrid from '@/components/ui/LoadingCardGrid.vue';
 import Modal from '@/components/ui/Modal.vue';
-import Skeleton from '@/components/ui/Skeleton.vue';
+import Select from '@/components/ui/Select.vue';
 import {
   createReservation,
   deleteReservation,
@@ -533,48 +535,39 @@ function getErrorMessage(error: unknown): string {
 
     <Card padding="lg">
       <div class="grid gap-4 lg:grid-cols-[1fr_0.8fr_0.8fr_auto] lg:items-end">
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="room-filter">Sala</label>
-          <select
-            id="room-filter"
-            v-model="filters.roomId"
-            class="mt-2 h-10 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            @change="applyFilters"
-          >
-            <option value="">Todas as salas</option>
-            <option v-for="room in rooms" :key="room.id" :value="room.id">
-              {{ room.name }}
-            </option>
-          </select>
-        </div>
+        <Select
+          id="room-filter"
+          v-model="filters.roomId"
+          label="Sala"
+          @update:model-value="applyFilters()"
+        >
+          <option value="">Todas as salas</option>
+          <option v-for="room in rooms" :key="room.id" :value="room.id">
+            {{ room.name }}
+          </option>
+        </Select>
 
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="status-filter">Status</label>
-          <select
-            id="status-filter"
-            v-model="filters.status"
-            class="mt-2 h-10 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            @change="applyFilters"
-          >
-            <option value="">Todos</option>
-            <option value="ongoing">Em andamento</option>
-            <option value="upcoming">Próxima</option>
-            <option value="finished">Encerrada</option>
-          </select>
-        </div>
+        <Select
+          id="status-filter"
+          v-model="filters.status"
+          label="Status"
+          @update:model-value="applyFilters()"
+        >
+          <option value="">Todos</option>
+          <option value="ongoing">Em andamento</option>
+          <option value="upcoming">Próxima</option>
+          <option value="finished">Encerrada</option>
+        </Select>
 
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="order-filter">Ordenação</label>
-          <select
-            id="order-filter"
-            v-model="filters.order"
-            class="mt-2 h-10 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            @change="applyFilters"
-          >
-            <option value="desc">Mais recentes</option>
-            <option value="asc">Mais antigas</option>
-          </select>
-        </div>
+        <Select
+          id="order-filter"
+          v-model="filters.order"
+          label="Ordenação"
+          @update:model-value="applyFilters()"
+        >
+          <option value="desc">Mais recentes</option>
+          <option value="asc">Mais antigas</option>
+        </Select>
 
         <Button class="w-full lg:w-auto" variant="secondary" @click="clearFilters">
           Limpar
@@ -582,29 +575,7 @@ function getErrorMessage(error: unknown): string {
       </div>
     </Card>
 
-    <section v-if="isLoading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Card v-for="item in 6" :key="item" padding="lg">
-        <div class="flex items-start justify-between gap-4">
-          <div class="w-full space-y-3">
-            <Skeleton class="h-5 w-3/4" />
-            <Skeleton class="h-4 w-1/2" />
-          </div>
-          <Skeleton class="h-10 w-10 shrink-0" />
-        </div>
-        <div class="mt-7 space-y-3">
-          <Skeleton class="h-4 w-4/5" />
-          <Skeleton class="h-4 w-3/5" />
-          <Skeleton class="h-4 w-2/5" />
-        </div>
-        <div class="mt-7 flex justify-between gap-2 border-t border-ink-100 pt-4">
-          <Skeleton class="h-6 w-24" />
-          <div class="flex gap-2">
-            <Skeleton class="h-9 w-9" />
-            <Skeleton class="h-9 w-9" />
-          </div>
-        </div>
-      </Card>
-    </section>
+    <LoadingCardGrid v-if="isLoading" variant="reservation" />
 
     <Card v-else-if="loadError && reservations.length === 0" padding="lg">
       <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -717,100 +688,63 @@ function getErrorMessage(error: unknown): string {
           <p class="font-medium">{{ formAlert.message }}</p>
         </div>
 
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="reservation-room">Sala</label>
-          <select
-            id="reservation-room"
-            v-model="form.roomId"
-            :aria-invalid="Boolean(formErrors.roomId)"
-            :disabled="isSubmitting"
-            class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-            @change="clearFormFeedback"
-          >
-            <option value="" disabled>Selecione uma sala</option>
-            <option v-for="room in rooms" :key="room.id" :value="room.id">
-              {{ room.name }} · {{ formatCapacity(room.capacity) }}
-            </option>
-          </select>
-          <p v-if="formErrors.roomId" class="mt-2 text-sm text-rose-600">
-            {{ formErrors.roomId }}
-          </p>
-        </div>
+        <Select
+          id="reservation-room"
+          v-model="form.roomId"
+          :disabled="isSubmitting"
+          :error="formErrors.roomId"
+          label="Sala"
+          @update:model-value="clearFormFeedback()"
+        >
+          <option value="" disabled>Selecione uma sala</option>
+          <option v-for="room in rooms" :key="room.id" :value="room.id">
+            {{ room.name }} · {{ formatCapacity(room.capacity) }}
+          </option>
+        </Select>
 
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="reservation-title">Título</label>
-          <input
-            id="reservation-title"
-            v-model="form.title"
-            :aria-invalid="Boolean(formErrors.title)"
-            :disabled="isSubmitting"
-            class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-            placeholder="Planejamento semanal"
-            type="text"
-            @input="clearFormFeedback"
-          />
-          <p v-if="formErrors.title" class="mt-2 text-sm text-rose-600">
-            {{ formErrors.title }}
-          </p>
-        </div>
+        <Input
+          id="reservation-title"
+          v-model="form.title"
+          :disabled="isSubmitting"
+          :error="formErrors.title"
+          label="Título"
+          placeholder="Planejamento semanal"
+          @update:model-value="clearFormFeedback()"
+        />
 
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="reservation-participants">
-            Participantes
-          </label>
-          <input
-            id="reservation-participants"
-            v-model.number="form.participants"
-            :aria-invalid="Boolean(formErrors.participants)"
-            :disabled="isSubmitting"
-            class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-            min="1"
-            step="1"
-            type="number"
-            @input="clearFormFeedback"
-          />
-          <p v-if="currentRoom" class="mt-2 text-xs text-ink-500">
-            Capacidade da sala: {{ formatCapacity(currentRoom.capacity) }}.
-          </p>
-          <p v-if="formErrors.participants" class="mt-2 text-sm text-rose-600">
-            {{ formErrors.participants }}
-          </p>
-        </div>
+        <Input
+          id="reservation-participants"
+          v-model="form.participants"
+          :disabled="isSubmitting"
+          :error="formErrors.participants"
+          :help="currentRoom ? `Capacidade da sala: ${formatCapacity(currentRoom.capacity)}.` : ''"
+          label="Participantes"
+          min="1"
+          step="1"
+          type="number"
+          @update:model-value="clearFormFeedback()"
+        />
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="text-sm font-medium text-ink-700" for="reservation-starts-at">
-              Início
-            </label>
-            <input
-              id="reservation-starts-at"
-              v-model="form.startsAt"
-              :aria-invalid="Boolean(formErrors.startsAt)"
-              :disabled="isSubmitting"
-              class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-              type="datetime-local"
-              @input="clearFormFeedback"
-            />
-            <p v-if="formErrors.startsAt" class="mt-2 text-sm text-rose-600">
-              {{ formErrors.startsAt }}
-            </p>
-          </div>
+          <Input
+            id="reservation-starts-at"
+            v-model="form.startsAt"
+            :disabled="isSubmitting"
+            :error="formErrors.startsAt"
+            label="Início"
+            type="datetime-local"
+            @update:model-value="clearFormFeedback()"
+          />
 
-          <div>
-            <label class="text-sm font-medium text-ink-700" for="reservation-ends-at">Fim</label>
-            <input
-              id="reservation-ends-at"
-              v-model="form.endsAt"
-              :aria-invalid="Boolean(formErrors.endsAt)"
-              :disabled="isSubmitting"
-              class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-              type="datetime-local"
-              @input="clearFormFeedback"
-            />
-            <p v-if="formErrors.endsAt" class="mt-2 text-sm text-rose-600">
-              {{ formErrors.endsAt }}
-            </p>
-          </div>
+          <Input
+            id="reservation-ends-at"
+            v-model="form.endsAt"
+            :disabled="isSubmitting"
+            :error="formErrors.endsAt"
+            label="Fim"
+            type="datetime-local"
+            @update:model-value="clearFormFeedback()"
+          />
         </div>
 
         <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">

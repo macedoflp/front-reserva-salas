@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { AxiosError } from 'axios';
-import type { ApiClientError, ApiErrorResponse } from '@/types';
+import type { ApiClientError, ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { env } from '@/utils/env';
 
 type ApiErrorHandler = (error: ApiClientError) => void;
@@ -30,6 +30,14 @@ export function setApiErrorHandler(handler: ApiErrorHandler): void {
   apiErrorHandler = handler;
 }
 
+export function unwrapApiData<T>(payload: ApiSuccessResponse<T> | T): T {
+  if (isApiSuccessResponse(payload)) {
+    return payload.data;
+  }
+
+  return payload;
+}
+
 export function normalizeApiError(error: AxiosError<ApiErrorResponse> | unknown): ApiClientError {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     const response = error.response;
@@ -56,3 +64,12 @@ export function normalizeApiError(error: AxiosError<ApiErrorResponse> | unknown)
   };
 }
 
+function isApiSuccessResponse<T>(value: ApiSuccessResponse<T> | T): value is ApiSuccessResponse<T> {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'data' in value &&
+    'statusCode' in value
+  );
+}

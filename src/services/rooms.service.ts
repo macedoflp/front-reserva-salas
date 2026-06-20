@@ -1,30 +1,31 @@
-import { api } from './http';
+import { api, unwrapApiData } from './http';
 import type { ApiSuccessResponse, CreateRoomPayload, Room, UpdateRoomPayload } from '@/types';
 
 const ROOMS_PATH = '/rooms';
 
 export async function listRooms(): Promise<Room[]> {
-  const response = await api.get<ApiSuccessResponse<Room[]>>(ROOMS_PATH);
+  const response = await api.get<ApiSuccessResponse<Room[]> | Room[]>(ROOMS_PATH);
+  const rooms = unwrapApiData<Room[]>(response.data);
 
-  return response.data.data;
+  return Array.isArray(rooms) ? rooms : [];
 }
 
 export async function getRoom(id: string): Promise<Room> {
-  const response = await api.get<ApiSuccessResponse<Room>>(`${ROOMS_PATH}/${id}`);
+  const response = await api.get<ApiSuccessResponse<Room> | Room>(`${ROOMS_PATH}/${id}`);
 
-  return response.data.data;
+  return unwrapApiData<Room>(response.data);
 }
 
 export async function createRoom(payload: CreateRoomPayload): Promise<Room> {
-  const response = await api.post<ApiSuccessResponse<Room>>(ROOMS_PATH, payload);
+  const response = await api.post<ApiSuccessResponse<Room> | Room>(ROOMS_PATH, payload);
 
-  return response.data.data;
+  return unwrapApiData<Room>(response.data);
 }
 
 export async function updateRoom(id: string, payload: UpdateRoomPayload): Promise<Room> {
-  const response = await api.patch<ApiSuccessResponse<Room>>(`${ROOMS_PATH}/${id}`, payload);
+  const response = await api.patch<ApiSuccessResponse<Room> | Room>(`${ROOMS_PATH}/${id}`, payload);
 
-  return response.data.data;
+  return unwrapApiData<Room>(response.data);
 }
 
 export async function deleteRoom(id: string): Promise<void> {

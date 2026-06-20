@@ -199,6 +199,14 @@ function getMostUsedRoomName(): string {
 }
 
 function getOperationalSummary(): string {
+  if (isLoading.value) {
+    return 'Carregando visão operacional...';
+  }
+
+  if (loadError.value && reservations.value.length === 0) {
+    return 'Não foi possível carregar os dados.';
+  }
+
   if (reservations.value.length === 0) {
     return 'Sua agenda está livre. Crie a primeira reserva.';
   }
@@ -290,8 +298,13 @@ function getErrorMessage(error: unknown): string {
       />
     </section>
 
-    <div class="flex justify-end">
-      <Button :disabled="isLoading || isRefreshing" variant="secondary" @click="loadDashboard({ silent: true })">
+    <div class="flex sm:justify-end">
+      <Button
+        :disabled="isLoading || isRefreshing"
+        class="w-full sm:w-auto"
+        variant="secondary"
+        @click="loadDashboard({ silent: true })"
+      >
         <RefreshCcw :class="['h-4 w-4', isRefreshing ? 'animate-spin' : '']" />
         Atualizar dados
       </Button>

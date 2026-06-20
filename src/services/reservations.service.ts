@@ -1,4 +1,4 @@
-import { api } from './http';
+import { api, unwrapApiData } from './http';
 import type {
   ApiSuccessResponse,
   CreateReservationPayload,
@@ -10,37 +10,43 @@ import type {
 const RESERVATIONS_PATH = '/reservations';
 
 export async function listReservations(params?: ReservationListQuery): Promise<Reservation[]> {
-  const response = await api.get<ApiSuccessResponse<Reservation[]>>(RESERVATIONS_PATH, {
+  const response = await api.get<ApiSuccessResponse<Reservation[]> | Reservation[]>(RESERVATIONS_PATH, {
     params,
   });
+  const reservations = unwrapApiData<Reservation[]>(response.data);
 
-  return response.data.data;
+  return Array.isArray(reservations) ? reservations : [];
 }
 
 export async function getReservation(id: string): Promise<Reservation> {
-  const response = await api.get<ApiSuccessResponse<Reservation>>(`${RESERVATIONS_PATH}/${id}`);
+  const response = await api.get<ApiSuccessResponse<Reservation> | Reservation>(
+    `${RESERVATIONS_PATH}/${id}`,
+  );
 
-  return response.data.data;
+  return unwrapApiData<Reservation>(response.data);
 }
 
 export async function createReservation(
   payload: CreateReservationPayload,
 ): Promise<Reservation> {
-  const response = await api.post<ApiSuccessResponse<Reservation>>(RESERVATIONS_PATH, payload);
+  const response = await api.post<ApiSuccessResponse<Reservation> | Reservation>(
+    RESERVATIONS_PATH,
+    payload,
+  );
 
-  return response.data.data;
+  return unwrapApiData<Reservation>(response.data);
 }
 
 export async function updateReservation(
   id: string,
   payload: UpdateReservationPayload,
 ): Promise<Reservation> {
-  const response = await api.patch<ApiSuccessResponse<Reservation>>(
+  const response = await api.patch<ApiSuccessResponse<Reservation> | Reservation>(
     `${RESERVATIONS_PATH}/${id}`,
     payload,
   );
 
-  return response.data.data;
+  return unwrapApiData<Reservation>(response.data);
 }
 
 export async function deleteReservation(id: string): Promise<void> {

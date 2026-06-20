@@ -15,8 +15,9 @@ import Badge from '@/components/ui/Badge.vue';
 import Button from '@/components/ui/Button.vue';
 import Card from '@/components/ui/Card.vue';
 import IconButton from '@/components/ui/IconButton.vue';
+import Input from '@/components/ui/Input.vue';
+import LoadingCardGrid from '@/components/ui/LoadingCardGrid.vue';
 import Modal from '@/components/ui/Modal.vue';
-import Skeleton from '@/components/ui/Skeleton.vue';
 import { createRoom, deleteRoom, listRooms, updateRoom } from '@/services/rooms.service';
 import { useAppStore } from '@/stores/app';
 import type { CreateRoomPayload, Room } from '@/types';
@@ -288,25 +289,7 @@ function getErrorMessage(error: unknown): string {
       </Card>
     </section>
 
-    <section v-if="isLoading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Card v-for="item in 6" :key="item" padding="lg">
-        <div class="flex items-start justify-between gap-4">
-          <div class="w-full space-y-3">
-            <Skeleton class="h-5 w-2/3" />
-            <Skeleton class="h-4 w-1/2" />
-          </div>
-          <Skeleton class="h-10 w-10 shrink-0" />
-        </div>
-        <div class="mt-7 space-y-3">
-          <Skeleton class="h-4 w-3/5" />
-          <Skeleton class="h-4 w-2/5" />
-        </div>
-        <div class="mt-7 flex justify-end gap-2 border-t border-ink-100 pt-4">
-          <Skeleton class="h-9 w-9" />
-          <Skeleton class="h-9 w-9" />
-        </div>
-      </Card>
-    </section>
+    <LoadingCardGrid v-if="isLoading" variant="room" />
 
     <Card v-else-if="loadError && rooms.length === 0" padding="lg">
       <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -395,38 +378,27 @@ function getErrorMessage(error: unknown): string {
 
     <Modal v-model="isFormModalOpen" :description="formDescription" :title="formTitle">
       <form class="space-y-5" novalidate @submit.prevent="submitRoom">
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="room-name">Nome</label>
-          <input
-            id="room-name"
-            v-model="form.name"
-            :disabled="isSubmitting"
-            :aria-invalid="Boolean(formErrors.name)"
-            class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-            placeholder="Sala Reunião 1"
-            type="text"
-            @input="formErrors.name = ''"
-          />
-          <p v-if="formErrors.name" class="mt-2 text-sm text-rose-600">{{ formErrors.name }}</p>
-        </div>
+        <Input
+          id="room-name"
+          v-model="form.name"
+          :disabled="isSubmitting"
+          :error="formErrors.name"
+          label="Nome"
+          placeholder="Sala Reunião 1"
+          @update:model-value="formErrors.name = ''"
+        />
 
-        <div>
-          <label class="text-sm font-medium text-ink-700" for="room-capacity">Capacidade</label>
-          <input
-            id="room-capacity"
-            v-model.number="form.capacity"
-            :disabled="isSubmitting"
-            :aria-invalid="Boolean(formErrors.capacity)"
-            class="mt-2 h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-950 shadow-soft outline-none transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50"
-            min="1"
-            step="1"
-            type="number"
-            @input="formErrors.capacity = ''"
-          />
-          <p v-if="formErrors.capacity" class="mt-2 text-sm text-rose-600">
-            {{ formErrors.capacity }}
-          </p>
-        </div>
+        <Input
+          id="room-capacity"
+          v-model="form.capacity"
+          :disabled="isSubmitting"
+          :error="formErrors.capacity"
+          label="Capacidade"
+          min="1"
+          step="1"
+          type="number"
+          @update:model-value="formErrors.capacity = ''"
+        />
 
         <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <Button
