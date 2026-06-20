@@ -1,147 +1,313 @@
 <script setup lang="ts">
 import {
   Activity,
-  ArrowUpRight,
+  AlertCircle,
   CalendarClock,
-  CheckCircle2,
   DoorOpen,
+  RefreshCcw,
   Users,
 } from '@lucide/vue';
-import Badge from '@/components/ui/Badge.vue';
+import { computed, markRaw, onMounted, ref } from 'vue';
+import DashboardStatCard from '@/components/dashboard/DashboardStatCard.vue';
+import QuickActions from '@/components/dashboard/QuickActions.vue';
+import RecentActivity from '@/components/dashboard/RecentActivity.vue';
+import RoomUsage from '@/components/dashboard/RoomUsage.vue';
+import type { RoomUsageItem } from '@/components/dashboard/RoomUsage.vue';
+import UpcomingReservations from '@/components/dashboard/UpcomingReservations.vue';
+import Button from '@/components/ui/Button.vue';
 import Card from '@/components/ui/Card.vue';
+import { listReservations } from '@/services/reservations.service';
+import { listRooms } from '@/services/rooms.service';
+import { useAppStore } from '@/stores/app';
+import type { Reservation, Room } from '@/types';
+import { formatCapacity, formatDateTime } from '@/utils';
 
-const stats = [
+const appStore = useAppStore();
+
+const isLoading = ref(true);
+const isRefreshing = ref(false);
+const loadError = ref<string | null>(null);
+const reservations = ref<Reservation[]>([]);
+const rooms = ref<Room[]>([]);
+
+const statIcons = {
+  ongoing: markRaw(Activity),
+  reservations: markRaw(CalendarClock),
+  rooms: markRaw(DoorOpen),
+  upcoming: markRaw(Users),
+};
+
+const totalCapacity = computed(() =>
+  rooms.value.reduce((total, room) => total + room.capacity, 0),
+);
+
+const ongoingReservations = computed(() =>
+  reservations.value.filter((reservation) => reservation.status === 'ongoing'),
+);
+
+const upcomingReservations = computed(() =>
+  reservations.value
+    .filter((reservation) => reservation.status === 'upcoming')
+    .sort((first, second) => getDateTime(first.startsAt) - getDateTime(second.startsAt)),
+);
+
+const recentActivity = computed(() =>
+  [...reservations.value]
+    .sort((first, second) => getDateTime(second.updatedAt) - getDateTime(first.updatedAt))
+    .slice(0, 5),
+);
+
+const activeParticipants = computed(() =>
+  ongoingReservations.value.reduce((total, reservation) => total + reservation.participants, 0),
+);
+
+const roomUsage = computed<RoomUsageItem[]>(() => {
+  const reservationsByRoom = reservations.value.reduce<Record<string, number>>(
+    (usage, reservation) => ({
+      ...usage,
+      [reservation.roomId]: (usage[reservation.roomId] ?? 0) + 1,
+    }),
+    {},
+  );
+  const maxUsage = Math.max(...Object.values(reservationsByRoom), 0);
+
+  if (maxUsage === 0) {
+    return [];
+  }
+
+  return rooms.value
+    .map((room) => {
+      const reservationsCount = reservationsByRoom[room.id] ?? 0;
+
+      return {
+        capacity: room.capacity,
+        id: room.id,
+        name: room.name,
+        percentage: Math.max(Math.round((reservationsCount / maxUsage) * 100), 8),
+        reservationsCount,
+      };
+    })
+    .filter((room) => room.reservationsCount > 0)
+    .sort((first, second) => {
+      if (second.reservationsCount !== first.reservationsCount) {
+        return second.reservationsCount - first.reservationsCount;
+      }
+
+      return first.name.localeCompare(second.name);
+    })
+    .slice(0, 5);
+});
+
+const nextReservationLabel = computed(() => {
+  const nextReservation = upcomingReservations.value[0];
+
+  if (!nextReservation) {
+    return 'Agenda livre';
+  }
+
+  return `Próxima: ${formatDateTime(nextReservation.startsAt)}`;
+});
+
+const dashboardStats = computed(() => [
   {
-    icon: DoorOpen,
-    label: 'Salas cadastradas',
-    value: '12',
-    variation: '+2 este mês',
+    icon: statIcons.rooms,
+    label: 'Total de salas',
+    tone: 'neutral' as const,
+    value: rooms.value.length,
+    variation:
+      rooms.value.length > 0
+        ? `${formatCapacity(totalCapacity.value)} disponíveis`
+        : 'Nenhuma sala cadastrada',
   },
   {
-    icon: CalendarClock,
-    label: 'Reservas hoje',
-    value: '18',
-    variation: '6 próximas',
+    icon: statIcons.reservations,
+    label: 'Total de reservas',
+    tone: 'brand' as const,
+    value: reservations.value.length,
+    variation:
+      reservations.value.length > 0
+        ? `${upcomingReservations.value.length} próximas na agenda`
+        : 'Nenhuma reserva registrada',
   },
   {
-    icon: Activity,
+    icon: statIcons.ongoing,
     label: 'Em andamento',
-    value: '3',
-    variation: '25% da capacidade',
+    tone: 'success' as const,
+    value: ongoingReservations.value.length,
+    variation:
+      ongoingReservations.value.length > 0
+        ? `${activeParticipants.value} participantes agora`
+        : 'Nenhuma sala em uso',
   },
   {
-    icon: Users,
-    label: 'Participantes',
-    value: '86',
-    variation: 'agenda do dia',
+    icon: statIcons.upcoming,
+    label: 'Próximas reservas',
+    tone: 'warning' as const,
+    value: upcomingReservations.value.length,
+    variation: nextReservationLabel.value,
   },
-];
+]);
 
-const schedule = [
-  {
-    room: 'Sala Aurora',
-    time: '09:00 - 10:30',
-    title: 'Planejamento semanal',
-  },
-  {
-    room: 'Sala Horizonte',
-    time: '11:00 - 12:00',
-    title: 'Revisão de produto',
-  },
-  {
-    room: 'Sala Prisma',
-    time: '14:00 - 15:30',
-    title: 'Workshop comercial',
-  },
-];
+onMounted(() => {
+  void loadDashboard();
+});
 
-const roomHealth = [
-  {
-    label: 'Aurora',
-    occupancy: '82%',
-  },
-  {
-    label: 'Horizonte',
-    occupancy: '64%',
-  },
-  {
-    label: 'Prisma',
-    occupancy: '48%',
-  },
-];
+async function loadDashboard(options: { silent?: boolean } = {}): Promise<void> {
+  if (options.silent) {
+    isRefreshing.value = true;
+  } else {
+    isLoading.value = true;
+  }
+
+  try {
+    const [roomsResponse, reservationsResponse] = await Promise.all([
+      listRooms(),
+      listReservations({ order: 'desc' }),
+    ]);
+
+    rooms.value = roomsResponse;
+    reservations.value = attachRooms(reservationsResponse, roomsResponse);
+    loadError.value = null;
+  } catch (error) {
+    loadError.value = getErrorMessage(error);
+    appStore.addToast({
+      message: loadError.value,
+      title: 'Falha ao carregar dashboard',
+      variant: 'error',
+    });
+  } finally {
+    isLoading.value = false;
+    isRefreshing.value = false;
+  }
+}
+
+function attachRooms(reservationList: Reservation[], roomList: Room[]): Reservation[] {
+  const roomMap = new Map(roomList.map((room) => [room.id, room]));
+
+  return reservationList.map((reservation) => ({
+    ...reservation,
+    room: reservation.room ?? roomMap.get(reservation.roomId) ?? null,
+  }));
+}
+
+function getDateTime(value: string): number {
+  return new Date(value).getTime();
+}
+
+function getMostUsedRoomName(): string {
+  return roomUsage.value[0]?.name ?? 'Sem dados de uso';
+}
+
+function getOperationalSummary(): string {
+  if (reservations.value.length === 0) {
+    return 'Sua agenda está livre. Crie a primeira reserva.';
+  }
+
+  if (ongoingReservations.value.length > 0) {
+    return `${ongoingReservations.value.length} reserva(s) acontecendo agora.`;
+  }
+
+  return nextReservationLabel.value;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+
+    if (typeof message === 'string') {
+      return message;
+    }
+  }
+
+  return 'Não foi possível carregar os dados da dashboard.';
+}
 </script>
 
 <template>
   <div class="space-y-6">
-    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Card v-for="stat in stats" :key="stat.label">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium text-ink-500">{{ stat.label }}</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-ink-950">{{ stat.value }}</p>
-            <p class="mt-2 text-sm text-ink-500">{{ stat.variation }}</p>
-          </div>
-          <span
-            class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-ink-200 bg-surface-50 text-ink-700"
-          >
-            <component :is="stat.icon" class="h-5 w-5" />
-          </span>
+    <section
+      class="overflow-hidden rounded-lg border border-ink-200 bg-white shadow-soft transition duration-300"
+    >
+      <div class="grid gap-6 p-6 lg:grid-cols-[1.3fr_0.7fr] lg:p-8">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-ink-500">Visão operacional</p>
+          <h2 class="mt-3 text-2xl font-semibold tracking-tight text-ink-950 sm:text-3xl">
+            {{ getOperationalSummary() }}
+          </h2>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-ink-500">
+            Dados consolidados a partir da API para acompanhar salas, reservas e uso em tempo real.
+          </p>
         </div>
-      </Card>
+
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <div class="rounded-lg border border-ink-100 bg-surface-50 p-4">
+            <p class="text-sm font-medium text-ink-500">Sala mais utilizada</p>
+            <p class="mt-2 truncate text-lg font-semibold text-ink-950">
+              {{ getMostUsedRoomName() }}
+            </p>
+          </div>
+          <div class="rounded-lg border border-ink-100 bg-surface-50 p-4">
+            <p class="text-sm font-medium text-ink-500">Capacidade cadastrada</p>
+            <p class="mt-2 text-lg font-semibold text-ink-950">
+              {{ formatCapacity(totalCapacity) }}
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-      <Card padding="lg">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-semibold text-ink-950">Agenda de hoje</h2>
-            <p class="mt-1 text-sm text-ink-500">Reservas organizadas por horário.</p>
-          </div>
-          <Badge tone="brand">Hoje</Badge>
-        </div>
-
-        <div class="mt-6 divide-y divide-ink-100">
-          <div
-            v-for="item in schedule"
-            :key="`${item.room}-${item.time}`"
-            class="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+    <Card v-if="loadError && !isLoading" padding="lg">
+      <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-start gap-4">
+          <span
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-700"
           >
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-ink-950">{{ item.title }}</p>
-              <p class="mt-1 truncate text-sm text-ink-500">{{ item.room }}</p>
-            </div>
-            <div class="shrink-0 text-right">
-              <p class="text-sm font-medium text-ink-700">{{ item.time }}</p>
-              <p class="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
-                <CheckCircle2 class="h-3.5 w-3.5" />
-                Confirmada
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card padding="lg">
-        <div class="flex items-center justify-between gap-3">
+            <AlertCircle class="h-5 w-5" />
+          </span>
           <div>
-            <h2 class="text-base font-semibold text-ink-950">Ocupação</h2>
-            <p class="mt-1 text-sm text-ink-500">Salas com maior uso na semana.</p>
+            <h3 class="text-base font-semibold text-ink-950">Dashboard indisponível</h3>
+            <p class="mt-1 text-sm leading-6 text-ink-500">{{ loadError }}</p>
           </div>
-          <ArrowUpRight class="h-5 w-5 text-ink-400" />
         </div>
 
-        <div class="mt-6 space-y-5">
-          <div v-for="room in roomHealth" :key="room.label">
-            <div class="mb-2 flex items-center justify-between text-sm">
-              <span class="font-medium text-ink-700">{{ room.label }}</span>
-              <span class="text-ink-500">{{ room.occupancy }}</span>
-            </div>
-            <div class="h-2 overflow-hidden rounded-md bg-ink-100">
-              <div class="h-full rounded-md bg-ink-900" :style="{ width: room.occupancy }" />
-            </div>
-          </div>
-        </div>
-      </Card>
+        <Button variant="secondary" @click="loadDashboard">
+          <RefreshCcw class="h-4 w-4" />
+          Tentar novamente
+        </Button>
+      </div>
+    </Card>
+
+    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <DashboardStatCard
+        v-for="stat in dashboardStats"
+        :key="stat.label"
+        :icon="stat.icon"
+        :label="stat.label"
+        :loading="isLoading"
+        :tone="stat.tone"
+        :value="stat.value"
+        :variation="stat.variation"
+      />
+    </section>
+
+    <div class="flex justify-end">
+      <Button :disabled="isLoading || isRefreshing" variant="secondary" @click="loadDashboard({ silent: true })">
+        <RefreshCcw :class="['h-4 w-4', isRefreshing ? 'animate-spin' : '']" />
+        Atualizar dados
+      </Button>
+    </div>
+
+    <section class="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+      <UpcomingReservations
+        :loading="isLoading"
+        :reservations="upcomingReservations.slice(0, 5)"
+      />
+      <QuickActions />
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <RoomUsage :loading="isLoading" :rooms="roomUsage" />
+      <RecentActivity :loading="isLoading" :reservations="recentActivity" />
     </section>
   </div>
 </template>
