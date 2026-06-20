@@ -4,6 +4,7 @@ import { RouterView } from 'vue-router';
 import AppHeader from '@/components/layout/AppHeader.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import IconButton from '@/components/ui/IconButton.vue';
+import ToastViewport from '@/components/ui/ToastViewport.vue';
 import { useAppStore } from '@/stores/app';
 
 const appStore = useAppStore();
@@ -11,6 +12,7 @@ const appStore = useAppStore();
 
 <template>
   <div class="min-h-screen bg-surface-50 text-ink-900">
+    <ToastViewport />
     <AppSidebar />
 
     <div

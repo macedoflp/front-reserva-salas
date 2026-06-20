@@ -6,7 +6,7 @@ const props = withDefaults(
   defineProps<{
     label: string;
     size?: 'sm' | 'md';
-    tone?: 'default' | 'strong';
+    tone?: 'danger' | 'default' | 'strong';
     type?: 'button' | 'reset' | 'submit';
   }>(),
   {
@@ -22,6 +22,7 @@ const sizes = {
 };
 
 const tones = {
+  danger: 'border border-rose-200 bg-white text-rose-600 shadow-soft hover:border-rose-300 hover:bg-rose-50',
   default: 'border border-ink-200 bg-white text-ink-600 shadow-soft hover:border-ink-300 hover:text-ink-950',
   strong: 'bg-ink-900 text-white shadow-soft hover:bg-ink-800',
 };
@@ -40,4 +41,3 @@ const classes = computed(() =>
     <slot />
   </button>
 </template>
-

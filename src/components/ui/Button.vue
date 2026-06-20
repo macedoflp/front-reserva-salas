@@ -7,7 +7,7 @@ const props = withDefaults(
     disabled?: boolean;
     size?: 'sm' | 'md';
     type?: 'button' | 'reset' | 'submit';
-    variant?: 'ghost' | 'primary' | 'secondary';
+    variant?: 'danger' | 'ghost' | 'primary' | 'secondary';
   }>(),
   {
     disabled: false,
@@ -18,6 +18,7 @@ const props = withDefaults(
 );
 
 const variants = {
+  danger: 'bg-rose-600 text-white shadow-soft hover:bg-rose-700',
   ghost: 'text-ink-600 hover:bg-ink-100 hover:text-ink-900',
   primary: 'bg-ink-900 text-white shadow-soft hover:bg-ink-800',
   secondary: 'border border-ink-200 bg-white text-ink-700 shadow-soft hover:border-ink-300 hover:text-ink-950',
@@ -42,4 +43,3 @@ const classes = computed(() =>
     <slot />
   </button>
 </template>
-
